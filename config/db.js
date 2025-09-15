@@ -12,8 +12,10 @@ async function connectDB() {
     }
 
     if (cached.promise) {
+        cached.conn = await cached.promise;
         return cached.conn;
     }
+    
 
     if (!cached.promise) {
         const opts = {
