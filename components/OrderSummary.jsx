@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 import axios from "axios";
 
+
 const OrderSummary = () => {
   const {
     currency,
@@ -11,6 +12,8 @@ const OrderSummary = () => {
     getCartAmount,
     getToken,
     user,
+    cartItems,
+    setCartItems
   } = useAppContext();
 
   const [selectedAddress, setSelectedAddress] = useState(null);
@@ -123,8 +126,48 @@ const OrderSummary = () => {
   };
 
   const createOrder = async () => {
-    // 🛠️ will hook into order API later
+    try {
+      // 1️⃣ Check for selected address
+      if (!selectedAddress) {
+        return toast.error("Please select an address");
+      }
+  
+      // 2️⃣ Prepare cart items array
+      const cartItemsArray = Object.entries(cartItems || {})
+        .map(([productId, quantity]) => ({ product: productId, quantity }))
+        .filter((item) => item.quantity > 0);
+  
+      if (cartItemsArray.length === 0) {
+        return toast.error("Your cart is empty");
+      }
+  
+      // 3️⃣ Get auth token
+      const token = await getToken();
+  
+      // 4️⃣ Send order request
+      const { data } = await axios.post(
+        "/api/order/create",
+        { address: selectedAddress._id, items: cartItemsArray },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+  
+      // 5️⃣ Handle response
+      if (data.success) {
+        toast.success(data.message);
+  
+        // Clear cart in context
+        setCartItems({});
+  
+        // Navigate to order placed page
+        router.push("/order-placed");
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      toast.error(error.message);
+    }
   };
+  
 
   useEffect(() => {
     if (user) {
