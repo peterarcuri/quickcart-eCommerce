@@ -2,8 +2,12 @@
 import React, { useState } from "react";
 import { assets } from "@/assets/assets";
 import Image from "next/image";
+import { useAppContext } from "@/context/AppContext";
+import { toast } from "react-hot-toast";
+import axios from "axios";
 
 const AddProduct = () => {
+  const { getToken, user } = useAppContext(); // make sure user is available here
 
   const [files, setFiles] = useState([]);
   const [name, setName] = useState('');
@@ -14,36 +18,86 @@ const AddProduct = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
+  
+    try {
+      const token = await getToken();
+      const formData = new FormData();
+  
+      formData.append('name', name);
+      formData.append('description', description);
+      formData.append('category', category);
+      formData.append('price', price);
+      formData.append('offerPrice', offerPrice);
+  
+      for (let i = 0; i < files.length; i++) {
+        formData.append('images', files[i]); // <-- corrected field name
+      }
+  
+      const { data } = await axios.post(
+        '/api/product/add',
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+  
+      if (data.success) {
+        toast.success(data.message);
+        setFiles([]);
+        setName('');
+        setDescription('');
+        setCategory('Earphone');
+        setPrice('');
+        setOfferPrice('');
+      } else {
+        toast.error(data.message || "Something went wrong");
+      }
+    } catch (error) {
+      console.error("AddProduct error:", error);
+      toast.error(error.response?.data?.message || error.message);
+    }
   };
+  
 
   return (
     <div className="flex-1 min-h-screen flex flex-col justify-between">
       <form onSubmit={handleSubmit} className="md:p-10 p-4 space-y-5 max-w-lg">
+        {/* Product Image Upload */}
         <div>
           <p className="text-base font-medium">Product Image</p>
           <div className="flex flex-wrap items-center gap-3 mt-2">
-
             {[...Array(4)].map((_, index) => (
               <label key={index} htmlFor={`image${index}`}>
-                <input onChange={(e) => {
-                  const updatedFiles = [...files];
-                  updatedFiles[index] = e.target.files[0];
-                  setFiles(updatedFiles);
-                }} type="file" id={`image${index}`} hidden />
+                <input
+                  type="file"
+                  id={`image${index}`}
+                  hidden
+                  onChange={(e) => {
+                    const updatedFiles = [...files];
+                    updatedFiles[index] = e.target.files[0];
+                    setFiles(updatedFiles);
+                  }}
+                />
                 <Image
-                  key={index}
                   className="max-w-24 cursor-pointer"
-                  src={files[index] ? URL.createObjectURL(files[index]) : assets.upload_area}
+                  src={
+                    files[index]
+                      ? URL.createObjectURL(files[index])
+                      : assets.upload_area
+                  }
                   alt=""
                   width={100}
                   height={100}
                 />
               </label>
             ))}
-
           </div>
         </div>
+
+        {/* Product Name */}
         <div className="flex flex-col gap-1 max-w-md">
           <label className="text-base font-medium" htmlFor="product-name">
             Product Name
@@ -58,11 +112,10 @@ const AddProduct = () => {
             required
           />
         </div>
+
+        {/* Product Description */}
         <div className="flex flex-col gap-1 max-w-md">
-          <label
-            className="text-base font-medium"
-            htmlFor="product-description"
-          >
+          <label className="text-base font-medium" htmlFor="product-description">
             Product Description
           </label>
           <textarea
@@ -75,6 +128,8 @@ const AddProduct = () => {
             required
           ></textarea>
         </div>
+
+        {/* Category, Price, Offer Price */}
         <div className="flex items-center gap-5 flex-wrap">
           <div className="flex flex-col gap-1 w-32">
             <label className="text-base font-medium" htmlFor="category">
@@ -84,7 +139,7 @@ const AddProduct = () => {
               id="category"
               className="outline-none md:py-2.5 py-2 px-3 rounded border border-gray-500/40"
               onChange={(e) => setCategory(e.target.value)}
-              defaultValue={category}
+              value={category}
             >
               <option value="Earphone">Earphone</option>
               <option value="Headphone">Headphone</option>
@@ -95,6 +150,7 @@ const AddProduct = () => {
               <option value="Accessories">Accessories</option>
             </select>
           </div>
+
           <div className="flex flex-col gap-1 w-32">
             <label className="text-base font-medium" htmlFor="product-price">
               Product Price
@@ -109,6 +165,7 @@ const AddProduct = () => {
               required
             />
           </div>
+
           <div className="flex flex-col gap-1 w-32">
             <label className="text-base font-medium" htmlFor="offer-price">
               Offer Price
@@ -124,11 +181,14 @@ const AddProduct = () => {
             />
           </div>
         </div>
-        <button type="submit" className="px-8 py-2.5 bg-orange-600 text-white font-medium rounded">
+
+        <button
+          type="submit"
+          className="px-8 py-2.5 bg-orange-600 text-white font-medium rounded"
+        >
           ADD
         </button>
       </form>
-      {/* <Footer /> */}
     </div>
   );
 };
