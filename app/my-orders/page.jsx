@@ -20,34 +20,27 @@ export default function MyOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [newOrderId, setNewOrderId] = useState(null);
 
-  // Only read search params client-side
   const searchParams = useSearchParams();
   useEffect(() => {
     const id = searchParams?.get("newOrderId");
     setNewOrderId(id);
   }, [searchParams]);
 
-  // Fetch orders for logged-in users or guests
   const fetchOrders = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
       let response;
-
       if (user) {
-        // Logged-in user → fetch all orders
         const token = await getToken();
         response = await axios.get("/api/order/list", {
           headers: { Authorization: `Bearer ${token}` },
         });
       } else if (newOrderId) {
-        // Guest user → fetch newly placed order by ID
         response = await axios.get(`/api/order/list?orderId=${newOrderId}`);
       } else {
-        // Guest user → fetch orders via guestEmail in localStorage
         const guestEmail = localStorage.getItem("guestEmail");
         if (!guestEmail) {
           setOrders([]);
-          setLoading(false);
           return;
         }
         response = await axios.get(`/api/order/list?guestEmail=${guestEmail}`);
@@ -99,7 +92,6 @@ export default function MyOrdersPage() {
                       <span>Items: {order.items.length}</span>
                     </p>
                   </div>
-
                   <div>
                     <p>
                       <span className="font-medium">{order.address.fullName}</span>
@@ -112,12 +104,10 @@ export default function MyOrdersPage() {
                       <span>{order.address.zip}</span>
                     </p>
                   </div>
-
                   <p className="font-medium my-auto">
                     {currency}
                     {order.amount}
                   </p>
-
                   <div>
                     <p className="flex flex-col">
                       <span>Method: {order.method || "COD"}</span>
