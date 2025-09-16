@@ -1,7 +1,7 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useAppContext } from "@/context/AppContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -16,59 +16,60 @@ import { useSearchParams } from "next/navigation";
 export default function MyOrdersPage() {
   const { currency, getToken } = useAppContext();
   const { user } = useUser();
+
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  // Read search params client-side safely
-  const searchParams = useSearchParams();
   const [newOrderId, setNewOrderId] = useState(null);
 
+  // Only read search params inside useEffect (client-only)
+  const searchParams = useSearchParams();
   useEffect(() => {
     if (searchParams) {
       setNewOrderId(searchParams.get("newOrderId"));
     }
   }, [searchParams]);
 
-  const fetchOrders = async () => {
-    setLoading(true);
-    try {
-      let response;
-
-      if (user) {
-        // Logged-in user → fetch orders with token
-        const token = await getToken();
-        response = await axios.get("/api/order/list", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-      } else if (newOrderId) {
-        // Guest user → fetch newly placed order
-        response = await axios.get(`/api/order/list?orderId=${newOrderId}`);
-      } else {
-        // Guest user → fetch via localStorage email
-        const guestEmail = localStorage.getItem("guestEmail");
-        if (!guestEmail) {
-          setOrders([]);
-          setLoading(false);
-          return;
-        }
-        response = await axios.get(`/api/order/list?guestEmail=${guestEmail}`);
-      }
-
-      if (response?.data?.success) {
-        setOrders(response.data.orders.reverse());
-      } else {
-        toast.error(response?.data?.message || "Failed to fetch orders.");
-      }
-    } catch (err) {
-      toast.error(err?.message || "Error fetching orders.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Fetch orders client-side
   useEffect(() => {
+    const fetchOrders = async () => {
+      setLoading(true);
+      try {
+        let response;
+
+        if (user) {
+          // Logged-in user
+          const token = await getToken();
+          response = await axios.get("/api/order/list", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+        } else if (newOrderId) {
+          // Guest new order
+          response = await axios.get(`/api/order/list?orderId=${newOrderId}`);
+        } else {
+          // Guest stored orders
+          const guestEmail = localStorage.getItem("guestEmail");
+          if (!guestEmail) {
+            setOrders([]);
+            setLoading(false);
+            return;
+          }
+          response = await axios.get(`/api/order/list?guestEmail=${guestEmail}`);
+        }
+
+        if (response?.data?.success) {
+          setOrders(response.data.orders.reverse());
+        } else {
+          toast.error(response?.data?.message || "Failed to fetch orders.");
+        }
+      } catch (err) {
+        toast.error(err?.message || "Error fetching orders.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchOrders();
-  }, [user, newOrderId]);
+  }, [user, newOrderId, getToken]);
 
   return (
     <>
@@ -115,8 +116,7 @@ export default function MyOrdersPage() {
                   </div>
 
                   <p className="font-medium my-auto">
-                    {currency}
-                    {order.amount}
+                    {currency}{order.amount}
                   </p>
 
                   <div>
