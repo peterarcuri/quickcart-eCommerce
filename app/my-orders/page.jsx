@@ -1,53 +1,60 @@
 'use client';
+export const dynamic = 'force-dynamic';
+
 import React, { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useAppContext } from "@/context/AppContext";
+import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
+import Loading from "@/components/Loading";
 import { assets } from "@/assets/assets";
 import Image from "next/image";
-import { useAppContext } from "@/context/AppContext";
-import Footer from "@/components/Footer";
-import Navbar from "@/components/Navbar";
-import Loading from "@/components/Loading";
 import axios from "axios";
 import { toast } from "react-hot-toast";
-import { useSearchParams } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
 
-const MyOrders = () => {
-  const { currency, getToken, user } = useAppContext();
+export default function MyOrdersPage() {
+  const { currency, getToken } = useAppContext();
+  const { user } = useUser();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const searchParams = useSearchParams();
-  const newOrderId = searchParams.get("newOrderId"); // Check if a new order was just placed
+  const newOrderId = searchParams?.get("newOrderId"); // Optional new order
 
+  // Fetch orders for logged-in users or guests
   const fetchOrders = async () => {
     try {
+      setLoading(true);
       let response;
 
-      if (newOrderId) {
-        // ✅ Fetch only the newly placed order
-        response = await axios.get(`/api/order/list?orderId=${newOrderId}`);
-      } else if (user) {
+      if (user) {
         // Logged-in user → fetch all orders
         const token = await getToken();
         response = await axios.get("/api/order/list", {
           headers: { Authorization: `Bearer ${token}` },
         });
+      } else if (newOrderId) {
+        // Guest user → fetch newly placed order by ID
+        response = await axios.get(`/api/order/list?orderId=${newOrderId}`);
       } else {
-        // Guest user → fetch all guest orders using localStorage
+        // Guest user → fetch orders via guestEmail in localStorage
         const guestEmail = localStorage.getItem("guestEmail");
         if (!guestEmail) {
+          setOrders([]);
           setLoading(false);
           return;
         }
         response = await axios.get(`/api/order/list?guestEmail=${guestEmail}`);
       }
 
-      if (response.data.success) {
+      if (response?.data?.success) {
         setOrders(response.data.orders.reverse());
       } else {
-        toast.error(response.data.message);
+        toast.error(response?.data?.message || "Failed to fetch orders.");
       }
-    } catch (error) {
-      toast.error(error.message);
+    } catch (err) {
+      toast.error(err?.message || "An error occurred while fetching orders.");
     } finally {
       setLoading(false);
     }
@@ -59,10 +66,11 @@ const MyOrders = () => {
 
   return (
     <>
-      <Navbar />
-      <div className="flex flex-col justify-between px-6 md:px-16 lg:px-32 py-6 min-h-screen">
+      <Navbar /> {/* NavBar is client component */}
+      <main className="flex flex-col justify-between px-6 md:px-16 lg:px-32 py-6 min-h-screen">
         <div className="space-y-5">
           <h2 className="text-lg font-medium mt-6">My Orders</h2>
+
           {loading ? (
             <Loading />
           ) : orders.length === 0 ? (
@@ -82,38 +90,35 @@ const MyOrders = () => {
                     />
                     <p className="flex flex-col gap-3">
                       <span className="font-medium text-base">
-                        {order.items
-                          .map(
-                            (item) => `${item.product.name} x ${item.quantity}`
-                          )
-                          .join(", ")}
+                        {order.items.map((item) => `${item.product.name} x ${item.quantity}`).join(", ")}
                       </span>
-                      <span>Items : {order.items.length}</span>
+                      <span>Items: {order.items.length}</span>
                     </p>
                   </div>
+
                   <div>
                     <p>
                       <span className="font-medium">{order.address.fullName}</span>
                       <br />
                       <span>{order.address.street}</span>
+                      {order.address.apartment && <span>, {order.address.apartment}</span>}
                       <br />
-                      {order.address.apartment && (
-                        <span>{order.address.apartment}, </span>
-                      )}
                       <span>{`${order.address.city}, ${order.address.state}`}</span>
                       <br />
                       <span>{order.address.zip}</span>
                     </p>
                   </div>
+
                   <p className="font-medium my-auto">
                     {currency}
                     {order.amount}
                   </p>
+
                   <div>
                     <p className="flex flex-col">
-                      <span>Method : COD</span>
-                      <span>Date : {new Date(order.date).toLocaleDateString()}</span>
-                      <span>Status : {order.status}</span>
+                      <span>Method: {order.method || "COD"}</span>
+                      <span>Date: {new Date(order.date).toLocaleDateString()}</span>
+                      <span>Status: {order.status}</span>
                     </p>
                   </div>
                 </div>
@@ -121,10 +126,8 @@ const MyOrders = () => {
             </div>
           )}
         </div>
-      </div>
+      </main>
       <Footer />
     </>
   );
-};
-
-export default MyOrders;
+}

@@ -1,19 +1,26 @@
 // eslint.config.mjs
 import { Linter } from "eslint";
 
-export default /** @type {Linter.Config} */ ({
-  root: true,
-  parser: "@typescript-eslint/parser", // string, not a function
-  parserOptions: {
-    ecmaVersion: 2020,
-    sourceType: "module",
+export default [
+  {
+    files: ["**/*.{js,ts,tsx}"],
+    languageOptions: {
+      parser: "@typescript-eslint/parser",
+      parserOptions: {
+        ecmaVersion: 2020,
+        sourceType: "module",
+      },
+    },
+    plugins: {
+      "@typescript-eslint": require("@typescript-eslint/eslint-plugin"),
+    },
+    extends: [
+      "eslint:recommended",
+      "plugin:@typescript-eslint/recommended",
+      "next/core-web-vitals",
+    ],
+    rules: {
+      // your custom rules
+    },
   },
-  extends: [
-    "eslint:recommended",
-    "plugin:@typescript-eslint/recommended",
-    "next/core-web-vitals"
-  ],
-  rules: {
-    // your custom rules
-  },
-});
+];
