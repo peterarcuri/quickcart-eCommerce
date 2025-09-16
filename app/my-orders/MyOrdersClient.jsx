@@ -1,6 +1,4 @@
 'use client';
-export const dynamic = 'force-dynamic';
-
 import React, { useEffect, useState } from "react";
 import { useAppContext } from "@/context/AppContext";
 import Navbar from "@/components/Navbar";
@@ -19,7 +17,6 @@ export default function MyOrdersClient() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Read search params safely on client
   const searchParams = useSearchParams();
   const [newOrderId, setNewOrderId] = useState(null);
 
@@ -35,16 +32,13 @@ export default function MyOrdersClient() {
       let response;
 
       if (user) {
-        // Logged-in user → fetch all orders
         const token = await getToken();
         response = await axios.get("/api/order/list", {
           headers: { Authorization: `Bearer ${token}` },
         });
       } else if (newOrderId) {
-        // Guest user → fetch newly placed order
         response = await axios.get(`/api/order/list?orderId=${newOrderId}`);
       } else {
-        // Guest user → fetch orders via guestEmail in localStorage
         const guestEmail = localStorage.getItem("guestEmail");
         if (!guestEmail) {
           setOrders([]);
