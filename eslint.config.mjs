@@ -1,5 +1,6 @@
 import tsPlugin from "@typescript-eslint/eslint-plugin";
 
+
 export default [
   {
     files: ["**/*.{js,ts,tsx}"],
@@ -11,13 +12,15 @@ export default [
       },
     },
     plugins: {
-      "@typescript-eslint": tsPlugin,
+      "@typescript-eslint": tsPlugin,      
     },
     extends: [
       "eslint:recommended",
-      "plugin:@typescript-eslint/recommended",
+      "plugin:@typescript-eslint/recommended",      
       "next/core-web-vitals",
     ],
-    rules: {},
+    rules: {
+      // your custom rules here
+    },
   },
 ];

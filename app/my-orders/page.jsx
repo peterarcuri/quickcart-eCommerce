@@ -2,7 +2,6 @@
 export const dynamic = 'force-dynamic';
 
 import React, { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { useAppContext } from "@/context/AppContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -12,15 +11,21 @@ import Image from "next/image";
 import axios from "axios";
 import { toast } from "react-hot-toast";
 import { useUser } from "@clerk/nextjs";
+import { useSearchParams } from "next/navigation";
 
 export default function MyOrdersPage() {
   const { currency, getToken } = useAppContext();
   const { user } = useUser();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [newOrderId, setNewOrderId] = useState(null);
 
+  // Only read search params client-side
   const searchParams = useSearchParams();
-  const newOrderId = searchParams?.get("newOrderId"); // Optional new order
+  useEffect(() => {
+    const id = searchParams?.get("newOrderId");
+    setNewOrderId(id);
+  }, [searchParams]);
 
   // Fetch orders for logged-in users or guests
   const fetchOrders = async () => {
@@ -66,11 +71,10 @@ export default function MyOrdersPage() {
 
   return (
     <>
-      <Navbar /> {/* NavBar is client component */}
+      <Navbar />
       <main className="flex flex-col justify-between px-6 md:px-16 lg:px-32 py-6 min-h-screen">
         <div className="space-y-5">
           <h2 className="text-lg font-medium mt-6">My Orders</h2>
-
           {loading ? (
             <Loading />
           ) : orders.length === 0 ? (
