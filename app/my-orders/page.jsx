@@ -18,29 +18,37 @@ export default function MyOrdersPage() {
   const { user } = useUser();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Read search params client-side safely
+  const searchParams = useSearchParams();
   const [newOrderId, setNewOrderId] = useState(null);
 
-  const searchParams = useSearchParams();
   useEffect(() => {
-    const id = searchParams?.get("newOrderId");
-    setNewOrderId(id);
+    if (searchParams) {
+      setNewOrderId(searchParams.get("newOrderId"));
+    }
   }, [searchParams]);
 
   const fetchOrders = async () => {
     setLoading(true);
     try {
       let response;
+
       if (user) {
+        // Logged-in user → fetch orders with token
         const token = await getToken();
         response = await axios.get("/api/order/list", {
           headers: { Authorization: `Bearer ${token}` },
         });
       } else if (newOrderId) {
+        // Guest user → fetch newly placed order
         response = await axios.get(`/api/order/list?orderId=${newOrderId}`);
       } else {
+        // Guest user → fetch via localStorage email
         const guestEmail = localStorage.getItem("guestEmail");
         if (!guestEmail) {
           setOrders([]);
+          setLoading(false);
           return;
         }
         response = await axios.get(`/api/order/list?guestEmail=${guestEmail}`);
@@ -52,7 +60,7 @@ export default function MyOrdersPage() {
         toast.error(response?.data?.message || "Failed to fetch orders.");
       }
     } catch (err) {
-      toast.error(err?.message || "An error occurred while fetching orders.");
+      toast.error(err?.message || "Error fetching orders.");
     } finally {
       setLoading(false);
     }
@@ -74,9 +82,9 @@ export default function MyOrdersPage() {
             <p>No orders found.</p>
           ) : (
             <div className="max-w-5xl border-t border-gray-300 text-sm">
-              {orders.map((order, index) => (
+              {orders.map((order, idx) => (
                 <div
-                  key={index}
+                  key={idx}
                   className="flex flex-col md:flex-row gap-5 justify-between p-5 border-b border-gray-300"
                 >
                   <div className="flex-1 flex gap-5 max-w-80">
@@ -92,6 +100,7 @@ export default function MyOrdersPage() {
                       <span>Items: {order.items.length}</span>
                     </p>
                   </div>
+
                   <div>
                     <p>
                       <span className="font-medium">{order.address.fullName}</span>
@@ -104,10 +113,12 @@ export default function MyOrdersPage() {
                       <span>{order.address.zip}</span>
                     </p>
                   </div>
+
                   <p className="font-medium my-auto">
                     {currency}
                     {order.amount}
                   </p>
+
                   <div>
                     <p className="flex flex-col">
                       <span>Method: {order.method || "COD"}</span>

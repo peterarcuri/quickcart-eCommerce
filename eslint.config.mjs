@@ -1,21 +1,35 @@
-import tsPlugin from "@typescript-eslint/eslint-plugin";
+// eslint.config.mjs
+import eslintPluginNext from 'eslint-plugin-next';
+import eslintPluginReact from 'eslint-plugin-react';
 
 export default [
   {
-    files: ["**/*.{js,ts,tsx}"],
+    files: ['**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx'],
     languageOptions: {
-      parser: "@typescript-eslint/parser",
+      ecmaVersion: 2022,
+      sourceType: 'module',
       parserOptions: {
-        ecmaVersion: 2020,
-        sourceType: "module",
+        ecmaFeatures: { jsx: true },
       },
     },
-    plugins: { "@typescript-eslint": tsPlugin },
-    extends: [
-      "eslint:recommended",
-      "plugin:@typescript-eslint/recommended",
-      "next/core-web-vitals",
-    ],
-    rules: {},
+    plugins: {
+      react: eslintPluginReact,
+      next: eslintPluginNext,
+    },
+    rules: {
+      // React rules
+      'react/react-in-jsx-scope': 'off', // Next.js handles this automatically
+      'react/jsx-uses-react': 'off',
+      'react/jsx-uses-vars': 'error',
+      'react/no-unescaped-entities': 'warn',
+
+      // Next.js rules
+      'next/no-html-link-for-pages': 'error',
+      'next/no-img-element': 'warn',
+
+      // General
+      'no-unused-vars': 'warn',
+      'no-console': 'off',
+    },
   },
 ];
