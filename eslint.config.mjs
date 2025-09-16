@@ -1,14 +1,19 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
+// eslint.config.mjs
+import { Linter } from "eslint";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
+export default /** @type {Linter.Config} */ ({
+  root: true,
+  parser: "@typescript-eslint/parser", // string, not a function
+  parserOptions: {
+    ecmaVersion: 2020,
+    sourceType: "module",
+  },
+  extends: [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended",
+    "next/core-web-vitals"
+  ],
+  rules: {
+    // your custom rules
+  },
 });
-
-const eslintConfig = [...compat.extends("next/core-web-vitals")];
-
-export default eslintConfig;
