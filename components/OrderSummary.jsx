@@ -3,7 +3,6 @@ import React, { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 import axios from "axios";
 
-
 const OrderSummary = () => {
   const {
     currency,
@@ -13,167 +12,114 @@ const OrderSummary = () => {
     getToken,
     user,
     cartItems,
-    setCartItems
+    setCartItems,
   } = useAppContext();
+
+  const [isGuest, setIsGuest] = useState(false);
+  const [guestInfo, setGuestInfo] = useState({
+    email: "",
+    fullName: "",
+    street: "",
+    apartment: "",
+    city: "",
+    state: "",
+    zip: "",
+  });
 
   const [selectedAddress, setSelectedAddress] = useState(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [userAddresses, setUserAddresses] = useState([]);
-  const [editingAddress, setEditingAddress] = useState(null);
-  const [formData, setFormData] = useState({
-    fullName: "",
-    area: "",
-    city: "",
-    state: "",
-  });
 
-  // ✅ Fetch addresses
+  // Fetch addresses for logged-in users
   const fetchUserAddresses = async () => {
     try {
       const token = await getToken();
       const { data } = await axios.get("/api/user/get-address", {
         headers: { Authorization: `Bearer ${token}` },
       });
-
       if (data.success) {
         setUserAddresses(data.addresses);
-        if (data.addresses.length > 0) {
-          setSelectedAddress(data.addresses[0]);
-        }
-      } else {
-        toast.error(data.message);
+        if (data.addresses.length > 0) setSelectedAddress(data.addresses[0]);
       }
     } catch (error) {
       toast.error(error.message);
     }
   };
 
-  // ✅ Select
-  const handleAddressSelect = (address) => {
-    setSelectedAddress(address);
-    setIsDropdownOpen(false);
-  };
+  useEffect(() => {
+    if (user && !isGuest) fetchUserAddresses();
+  }, [user, isGuest]);
 
-  // ✅ Start editing
-  const handleEdit = (address) => {
-    setEditingAddress(address._id);
-    setFormData({
-      fullName: address.fullName,
-      area: address.area,
-      city: address.city,
-      state: address.state,
-    });
-  };
+  // Create order
+// ✅ Create order (supports guest and logged-in users)
+const createOrder = async () => {
+  try {
+    // Convert cartItems to array
+    const cartItemsArray = Object.entries(cartItems || {})
+      .map(([productId, quantity]) => ({ product: productId, quantity }))
+      .filter((item) => item.quantity > 0);
 
-  // ✅ Cancel edit
-  const handleCancelEdit = () => {
-    setEditingAddress(null);
-    setFormData({ fullName: "", area: "", city: "", state: "" });
-  };
-
-  // ✅ Save updated address
-  const handleUpdate = async () => {
-    try {
-      const token = await getToken();
-      const { data } = await axios.put(
-        "/api/user/update-address",
-        { addressId: editingAddress, address: formData },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      if (data.success) {
-        setUserAddresses((prev) =>
-          prev.map((addr) =>
-            addr._id === editingAddress ? { ...addr, ...formData } : addr
-          )
-        );
-        if (selectedAddress && selectedAddress._id === editingAddress) {
-          setSelectedAddress({ ...selectedAddress, ...formData });
-        }
-        toast.success("Address updated!");
-        handleCancelEdit();
-      } else {
-        toast.error(data.message);
-      }
-    } catch (error) {
-      toast.error(error.message);
+    if (cartItemsArray.length === 0) {
+      return toast.error("Your cart is empty");
     }
-  };
 
-  // ✅ Delete address
-  const handleDelete = async (id) => {
-    if (!confirm("Are you sure you want to delete this address?")) return;
+    let payload = { items: cartItemsArray };
 
-    try {
-      const token = await getToken();
-      const { data } = await axios.delete("/api/user/delete-address", {
-        headers: { Authorization: `Bearer ${token}` },
-        data: { addressId: id },
-      });
+    if (isGuest) {
+      // Guest checkout
+      const { email, fullName, street, apartment, city, state, zip } = guestInfo;
 
-      if (data.success) {
-        setUserAddresses((prev) => prev.filter((addr) => addr._id !== id));
-        if (selectedAddress && selectedAddress._id === id) {
-          setSelectedAddress(null);
-        }
-        toast.success("Address deleted!");
-      } else {
-        toast.error(data.message);
+      if (!email || !fullName || !street || !city || !state || !zip) {
+        return toast.error("Please fill all required guest fields");
       }
-    } catch (error) {
-      toast.error(error.message);
-    }
-  };
 
-  const createOrder = async () => {
-    try {
-      // 1️⃣ Check for selected address
+      payload = {
+        ...payload,
+        guestEmail: email,
+        address: { fullName, street, apartment: apartment || "", city, state, zip },
+      };
+    } else {
+      // ✅ Logged-in user checkout: copy full address object instead of _id
       if (!selectedAddress) {
         return toast.error("Please select an address");
       }
-  
-      // 2️⃣ Prepare cart items array
-      const cartItemsArray = Object.entries(cartItems || {})
-        .map(([productId, quantity]) => ({ product: productId, quantity }))
-        .filter((item) => item.quantity > 0);
-  
-      if (cartItemsArray.length === 0) {
-        return toast.error("Your cart is empty");
-      }
-  
-      // 3️⃣ Get auth token
-      const token = await getToken();
-  
-      // 4️⃣ Send order request
-      const { data } = await axios.post(
-        "/api/order/create",
-        { address: selectedAddress._id, items: cartItemsArray },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-  
-      // 5️⃣ Handle response
-      if (data.success) {
-        toast.success(data.message);
-  
-        // Clear cart in context
-        setCartItems({});
-  
-        // Navigate to order placed page
-        router.push("/order-placed");
-      } else {
-        toast.error(data.message);
-      }
-    } catch (error) {
-      toast.error(error.message);
-    }
-  };
-  
 
-  useEffect(() => {
-    if (user) {
-      fetchUserAddresses();
+      payload.address = {
+        fullName: selectedAddress.fullName,
+        street: selectedAddress.street,
+        apartment: selectedAddress.apartment || "",
+        city: selectedAddress.city,
+        state: selectedAddress.state,
+        zip: selectedAddress.zip,
+      };
     }
-  }, [user]);
+
+    // Send request
+    const headers = user && !isGuest ? { Authorization: `Bearer ${await getToken()}` } : {};
+    const { data } = await axios.post("/api/order/create", payload, { headers });
+
+    if (data.success) {
+      toast.success(data.message);
+    
+      // ✅ Save guestEmail so /my-orders can fetch orders later
+      if (isGuest) {
+        localStorage.setItem("guestEmail", guestInfo.email);
+      }
+    
+      setCartItems({});
+      router.push(`/my-orders?newOrderId=${data.order._id}`);
+    } else {
+      toast.error(data.message);
+    }
+    
+
+  } catch (error) {
+    console.error("❌ Error placing order:", error);
+    toast.error(`Error placing order: ${error.message}`);
+  }
+};
+
+
 
   return (
     <div className="w-full md:w-96 bg-gray-500/5 p-5">
@@ -182,7 +128,93 @@ const OrderSummary = () => {
       </h2>
       <hr className="border-gray-500/30 my-5" />
 
-      <div className="space-y-6">
+      {/* Guest Checkout Toggle */}
+      {!user && (
+        <div className="mb-4">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={isGuest}
+              onChange={() => setIsGuest(!isGuest)}
+            />
+            <span className="text-gray-700">Checkout as Guest</span>
+          </label>
+        </div>
+      )}
+
+      {isGuest ? (
+        <div className="space-y-3">
+          <input
+            type="email"
+            placeholder="Email"
+            value={guestInfo.email}
+            onChange={(e) =>
+              setGuestInfo({ ...guestInfo, email: e.target.value })
+            }
+            className="border p-2 w-full"
+            required
+          />
+          <input
+            type="text"
+            placeholder="Full Name"
+            value={guestInfo.fullName}
+            onChange={(e) =>
+              setGuestInfo({ ...guestInfo, fullName: e.target.value })
+            }
+            className="border p-2 w-full"
+            required
+          />
+          <input
+            type="text"
+            placeholder="Street Address"
+            value={guestInfo.street}
+            onChange={(e) =>
+              setGuestInfo({ ...guestInfo, street: e.target.value })
+            }
+            className="border p-2 w-full"
+            required
+          />
+          <input
+            type="text"
+            placeholder="Apartment, Suite, Unit (optional)"
+            value={guestInfo.apartment}
+            onChange={(e) =>
+              setGuestInfo({ ...guestInfo, apartment: e.target.value })
+            }
+            className="border p-2 w-full"
+          />
+          <input
+            type="text"
+            placeholder="City"
+            value={guestInfo.city}
+            onChange={(e) =>
+              setGuestInfo({ ...guestInfo, city: e.target.value })
+            }
+            className="border p-2 w-full"
+            required
+          />
+          <input
+            type="text"
+            placeholder="State"
+            value={guestInfo.state}
+            onChange={(e) =>
+              setGuestInfo({ ...guestInfo, state: e.target.value })
+            }
+            className="border p-2 w-full"
+            required
+          />
+          <input
+            type="text"
+            placeholder="ZIP / Postal Code"
+            value={guestInfo.zip}
+            onChange={(e) =>
+              setGuestInfo({ ...guestInfo, zip: e.target.value })
+            }
+            className="border p-2 w-full"
+            required
+          />
+        </div>
+      ) : (
         <div>
           <label className="text-base font-medium uppercase text-gray-600 block mb-2">
             Select Address
@@ -194,117 +226,26 @@ const OrderSummary = () => {
             >
               <span>
                 {selectedAddress
-                  ? `${selectedAddress.fullName}, ${selectedAddress.area}, ${selectedAddress.city}, ${selectedAddress.state}`
+                  ? `${selectedAddress.fullName}, ${selectedAddress.street}, ${selectedAddress.city}, ${selectedAddress.state}, ${selectedAddress.zip}`
                   : "Select Address"}
               </span>
-              <svg
-                className={`w-5 h-5 inline float-right transition-transform duration-200 ${
-                  isDropdownOpen ? "rotate-0" : "-rotate-90"
-                }`}
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="#6B7280"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
             </button>
-
             {isDropdownOpen && (
               <ul className="absolute w-full bg-white border shadow-md mt-1 z-10 py-1.5">
                 {userAddresses.map((address) => (
                   <li
                     key={address._id}
-                    className="px-4 py-2 hover:bg-gray-500/10"
+                    className="px-4 py-2 hover:bg-gray-500/10 cursor-pointer"
+                    onClick={() => setSelectedAddress(address)}
                   >
-                    {editingAddress === address._id ? (
-                      <div className="space-y-2">
-                        <input
-                          type="text"
-                          value={formData.fullName}
-                          onChange={(e) =>
-                            setFormData({ ...formData, fullName: e.target.value })
-                          }
-                          placeholder="Full Name"
-                          className="border p-1 w-full"
-                        />
-                        <input
-                          type="text"
-                          value={formData.area}
-                          onChange={(e) =>
-                            setFormData({ ...formData, area: e.target.value })
-                          }
-                          placeholder="Area"
-                          className="border p-1 w-full"
-                        />
-                        <input
-                          type="text"
-                          value={formData.city}
-                          onChange={(e) =>
-                            setFormData({ ...formData, city: e.target.value })
-                          }
-                          placeholder="City"
-                          className="border p-1 w-full"
-                        />
-                        <input
-                          type="text"
-                          value={formData.state}
-                          onChange={(e) =>
-                            setFormData({ ...formData, state: e.target.value })
-                          }
-                          placeholder="State"
-                          className="border p-1 w-full"
-                        />
-                        <div className="flex gap-2">
-                          <button
-                            onClick={handleUpdate}
-                            className="bg-green-600 text-white px-3 py-1"
-                          >
-                            Save
-                          </button>
-                          <button
-                            onClick={handleCancelEdit}
-                            className="bg-gray-400 text-white px-3 py-1"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex justify-between items-center">
-                        <span
-                          onClick={() => handleAddressSelect(address)}
-                          className="cursor-pointer"
-                        >
-                          {address.fullName}, {address.area}, {address.city},{" "}
-                          {address.state}
-                        </span>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleEdit(address)}
-                            className="text-blue-600"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDelete(address._id)}
-                            className="text-red-600"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    )}
+                    {address.fullName}, {address.street}{" "}
+                    {address.apartment && `, ${address.apartment}`},{" "}
+                    {address.city}, {address.state}, {address.zip}
                   </li>
                 ))}
                 <li
                   onClick={() => router.push("/add-address")}
-                  className="px-4 py-2 hover:bg-gray-500/10 cursor-pointer text-center"
+                  className="px-4 py-2 hover:bg-gray-500/10 text-center cursor-pointer"
                 >
                   + Add New Address
                 </li>
@@ -312,53 +253,27 @@ const OrderSummary = () => {
             )}
           </div>
         </div>
+      )}
 
-        {/* Promo code */}
-        <div>
-          <label className="text-base font-medium uppercase text-gray-600 block mb-2">
-            Promo Code
-          </label>
-          <div className="flex flex-col items-start gap-3">
-            <input
-              type="text"
-              placeholder="Enter promo code"
-              className="flex-grow w-full outline-none p-2.5 text-gray-600 border"
-            />
-            <button className="bg-orange-600 text-white px-9 py-2 hover:bg-orange-700">
-              Apply
-            </button>
-          </div>
+      <hr className="border-gray-500/30 my-5" />
+
+      {/* Totals */}
+      <div className="space-y-4">
+        <div className="flex justify-between text-base font-medium">
+          <p className="uppercase text-gray-600">Items {getCartCount()}</p>
+          <p className="text-gray-800">{currency}{getCartAmount()}</p>
         </div>
-
-        <hr className="border-gray-500/30 my-5" />
-
-        {/* Totals */}
-        <div className="space-y-4">
-          <div className="flex justify-between text-base font-medium">
-            <p className="uppercase text-gray-600">Items {getCartCount()}</p>
-            <p className="text-gray-800">
-              {currency}
-              {getCartAmount()}
-            </p>
-          </div>
-          <div className="flex justify-between">
-            <p className="text-gray-600">Shipping Fee</p>
-            <p className="font-medium text-gray-800">Free</p>
-          </div>
-          <div className="flex justify-between">
-            <p className="text-gray-600">Tax (2%)</p>
-            <p className="font-medium text-gray-800">
-              {currency}
-              {Math.floor(getCartAmount() * 0.02)}
-            </p>
-          </div>
-          <div className="flex justify-between text-lg md:text-xl font-medium border-t pt-3">
-            <p>Total</p>
-            <p>
-              {currency}
-              {getCartAmount() + Math.floor(getCartAmount() * 0.02)}
-            </p>
-          </div>
+        <div className="flex justify-between">
+          <p className="text-gray-600">Shipping Fee</p>
+          <p className="font-medium text-gray-800">Free</p>
+        </div>
+        <div className="flex justify-between text-gray-600">
+          <p>Tax (2%)</p>
+          <p>{currency}{Math.floor(getCartAmount() * 0.02)}</p>
+        </div>
+        <div className="flex justify-between text-lg md:text-xl font-medium border-t pt-3">
+          <p>Total</p>
+          <p>{currency}{getCartAmount() + Math.floor(getCartAmount() * 0.02)}</p>
         </div>
       </div>
 
