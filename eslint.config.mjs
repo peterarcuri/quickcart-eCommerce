@@ -1,5 +1,4 @@
-// eslint.config.mjs
-import { Linter } from "eslint";
+import tsPlugin from "@typescript-eslint/eslint-plugin";
 
 export default [
   {
@@ -12,15 +11,13 @@ export default [
       },
     },
     plugins: {
-      "@typescript-eslint": require("@typescript-eslint/eslint-plugin"),
+      "@typescript-eslint": tsPlugin,
     },
     extends: [
       "eslint:recommended",
       "plugin:@typescript-eslint/recommended",
       "next/core-web-vitals",
     ],
-    rules: {
-      // your custom rules
-    },
+    rules: {},
   },
 ];
